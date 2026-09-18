@@ -9,8 +9,8 @@ services:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
         NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME}
         NEXT_PUBLIC_REPO_URL: ${NEXT_PUBLIC_REPO_URL:-}
-    expose:
-      - "${PORT}"
+    ports:
+      - "${PORT}:${PORT}"
     env_file: .env
     deploy:
       resources:
@@ -22,12 +22,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-  nginx:
-    container_name: filezconverter_nginx
-    image: nginx:1.27-alpine
-    ports:
-      - "${NGINX_PORT:?set in env}:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - web

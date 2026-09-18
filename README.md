@@ -76,16 +76,15 @@ cd code/frontend && npm ci && npm run dev
 # 2b. Or Docker dev (app on http://localhost:3001)
 docker compose --env-file .env.development -f docker-compose.dev.yml up --build
 
-# 2c. Or production (nginx on http://localhost:8080 → app)
+# 2c. Or production (app on http://localhost:${PORT})
 docker compose --env-file .env -f docker-compose.prod.yml up --build -d
 ```
 
 > The `--env-file` flag is required: compose interpolates build args and port
 > mappings from it (the service-level `env_file` only covers runtime).
-> Production serves through an nginx reverse proxy (`nginx.conf`)
-> carrying app-safe security headers — no CSP there on purpose, the app sends
-> its own. Upstream is fixed to the internal app port (see the note inside
-> the file). Live domain is baked at build time from `.env`
+> Production is a single Next.js container published on `PORT`; put your
+> own proxy or tunnel in front for TLS. The app sends its own security
+> headers. Live domain is baked at build time from `.env`
 > (`NEXT_PUBLIC_API_BASE_URL`).
 
 Open the printed URL. Drop a file into any studio and convert.
