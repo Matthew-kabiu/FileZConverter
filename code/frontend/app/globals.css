@@ -1,0 +1,279 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Display: headings, nav, tools, buttons. */
+  --font-display: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Upload/dropzone voice: rounded and friendly. */
+  --font-upload: var(--font-upload), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Editor, tables, code: tabular, monospace. */
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* deep_twilight */
+  --color-twilight-100: #010113;
+  --color-twilight-200: #010226;
+  --color-twilight-300: #020338;
+  --color-twilight-400: #02044b;
+  --color-twilight-500: #03045e;
+  --color-twilight-600: #0508ae;
+  --color-twilight-700: #0f12f8;
+  --color-twilight-800: #5f61fa;
+  --color-twilight-900: #afb0fd;
+
+  /* bright_teal_blue */
+  --color-ocean-100: #001825;
+  --color-ocean-200: #003049;
+  --color-ocean-300: #00486e;
+  --color-ocean-400: #005f93;
+  --color-ocean-500: #0077b6;
+  --color-ocean-600: #00a2f9;
+  --color-ocean-700: #3bbaff;
+  --color-ocean-800: #7cd1ff;
+  --color-ocean-900: #bee8ff;
+
+  /* turquoise_surf */
+  --color-surf-100: #00242b;
+  --color-surf-200: #004756;
+  --color-surf-300: #006b81;
+  --color-surf-400: #008fab;
+  --color-surf-500: #00b4d8;
+  --color-surf-600: #12d8ff;
+  --color-surf-700: #4ee1ff;
+  --color-surf-800: #89ebff;
+  --color-surf-900: #c4f5ff;
+
+  /* frosted_blue */
+  --color-frost-100: #0a3a43;
+  --color-frost-200: #137586;
+  --color-frost-300: #1dafc9;
+  --color-frost-400: #4ccfe6;
+  --color-frost-500: #90e0ef;
+  --color-frost-600: #a6e7f2;
+  --color-frost-700: #bcedf5;
+  --color-frost-800: #d2f3f9;
+  --color-frost-900: #e9f9fc;
+
+  /* light_cyan */
+  --color-mist-100: #0a444f;
+  --color-mist-200: #15889f;
+  --color-mist-300: #2ac4e3;
+  --color-mist-400: #79daee;
+  --color-mist-500: #caf0f8;
+  --color-mist-600: #d4f3f9;
+  --color-mist-700: #dff6fb;
+  --color-mist-800: #e9f9fc;
+  --color-mist-900: #f4fcfe;
+
+  /* motion tokens (UIFX §10) */
+  --fx-fast: 160ms;
+  --fx-base: 240ms;
+  --fx-slow: 420ms;
+  --fx-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  --radius: 0.625rem;
+  --gutter: 1.5rem;
+  --sidebar-w-collapsed: 4rem;
+  --sidebar-w-expanded: 16rem;
+  --sidebar-w: var(--sidebar-w-collapsed);
+  /* Tooltip surfaces: navy-on-frost in light mode, frost-on-navy in dark. */
+  --tt-bg: #02044b;
+  --tt-fg: #e9f9fc;
+}
+
+.dark {
+  --tt-bg: #e9f9fc;
+  --tt-fg: #020338;
+}
+
+/*
+ * Rendered-markdown preview scale. The Tailwind typography plugin is NOT
+ * installed, so `prose` classes would be dead — this is the real scale:
+ * generous rhythm, clear hierarchy, comfortable measure.
+ */
+.md-preview {
+  font-size: 0.95rem;
+  line-height: 1.85;
+  overflow-wrap: break-word;
+}
+
+.md-preview > * + * {
+  margin-top: 1.1em;
+}
+
+.md-preview h1,
+.md-preview h2,
+.md-preview h3,
+.md-preview h4 {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.md-preview h1 {
+  font-size: 1.75rem;
+  margin-top: 0.4em;
+}
+
+.md-preview h2 {
+  font-size: 1.4rem;
+  margin-top: 1.6em;
+}
+
+.md-preview h3 {
+  font-size: 1.15rem;
+  margin-top: 1.5em;
+}
+
+.md-preview h4 {
+  font-size: 1rem;
+  margin-top: 1.4em;
+}
+
+.md-preview p {
+  margin-top: 1.1em;
+}
+
+.md-preview ul,
+.md-preview ol {
+  margin-top: 1.1em;
+  padding-left: 1.6em;
+}
+
+.md-preview ul {
+  list-style: disc;
+}
+
+.md-preview ol {
+  list-style: decimal;
+}
+
+.md-preview li + li {
+  margin-top: 0.45em;
+}
+
+.md-preview blockquote {
+  margin-top: 1.1em;
+  padding: 0.7em 1.1em;
+  border-left: 3px solid var(--color-surf-500);
+  border-radius: 0 0.625rem 0.625rem 0;
+  background: color-mix(in srgb, var(--color-surf-500) 8%, transparent);
+  font-style: italic;
+}
+
+.md-preview blockquote > * + * {
+  margin-top: 0.7em;
+}
+
+.md-preview code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  padding: 0.15em 0.4em;
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--color-ocean-500) 10%, transparent);
+}
+
+.md-preview pre {
+  margin-top: 1.1em;
+  padding: 1em 1.2em;
+  border-radius: 0.625rem;
+  overflow-x: auto;
+  background: var(--color-twilight-300);
+  color: var(--color-frost-800);
+  line-height: 1.7;
+}
+
+.md-preview pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.md-preview table {
+  margin-top: 1.1em;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.md-preview th,
+.md-preview td {
+  padding: 0.6em 0.9em;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  text-align: left;
+}
+
+.md-preview th {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-weight: 600;
+}
+
+.md-preview hr {
+  margin: 2em 0;
+  opacity: 0.25;
+}
+
+.md-preview a {
+  color: var(--color-ocean-400);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.dark .md-preview a {
+  color: var(--color-surf-600);
+}
+
+.md-preview img {
+  max-width: 100%;
+  border-radius: 0.625rem;
+}
+
+/* Every interactive control shows the hand. */
+button,
+select,
+input[type="checkbox"],
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+/*
+ * Above-the-fold entrance. Pure CSS on purpose: motion/FadeIn server-renders
+ * at opacity 0 and needs JS animation to reveal, which left the dropzone
+ * invisible when the animation never ran. CSS keyframes reveal with the
+ * stylesheet — no JS dependency. Motion stays only for dynamically added
+ * rows, where JS is guaranteed running.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise var(--fx-base) var(--fx-ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
