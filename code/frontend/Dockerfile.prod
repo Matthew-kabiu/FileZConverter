@@ -5,12 +5,17 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+# Coolify can inject NODE_ENV=production into every stage. CSS and TypeScript
+# tooling are devDependencies but are required to build the production app.
+RUN --mount=type=cache,target=/root/.npm npm ci --include=dev
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# This app stores its icons/fonts under app/; public/ may not exist in Git.
+# Ensure the optional directory exists for the runtime COPY below.
+RUN mkdir -p public
 # PORT must be declared here (not just in the production stage): env.ts
 # validates it while prerendering, and .env.local never reaches the build
 # context (gitignored) — without this, Coolify's --build-arg PORT lands
