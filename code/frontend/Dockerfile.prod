@@ -11,8 +11,14 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# PORT must be declared here (not just in the production stage): env.ts
+# validates it while prerendering, and .env.local never reaches the build
+# context (gitignored) — without this, Coolify's --build-arg PORT lands
+# nowhere and the build dies with "Invalid server environment variables".
+ARG PORT
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_APP_NAME
+ENV PORT=${PORT}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
 ENV NEXT_TELEMETRY_DISABLED=1
