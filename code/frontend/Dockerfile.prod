@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 # Coolify can inject NODE_ENV=production into every stage. CSS and TypeScript
 # tooling are devDependencies but are required to build the production app.
-RUN --mount=type=cache,target=/root/.npm npm ci --include=dev
+RUN --mount=type=cache,target=/root/.npm npm ci --include=dev \
+  && node -e "require('@tailwindcss/postcss'); require('typescript'); console.log('[deps] Build dependencies load successfully')"
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
@@ -27,7 +28,9 @@ ENV PORT=${PORT}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN --mount=type=cache,target=/app/.next/cache npm run build
+RUN --mount=type=cache,target=/app/.next/cache \
+  node -e "console.log('[builder] PostCSS:', require.resolve('@tailwindcss/postcss')); require('@tailwindcss/postcss'); require('typescript')" \
+  && npm run build
 
 FROM node:20-bookworm-slim AS production
 WORKDIR /app
