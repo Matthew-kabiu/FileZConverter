@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# Dev: hot reload. bookworm-slim (not alpine) so LibreOffice headless runs
+# here too — the legacy DOC/ODT/RTF lane converts via soffice in dev as well.
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
+    poppler-utils \
+    fonts-dejavu \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+
+# Source is volume-mounted at runtime for hot reload
+ARG PORT
+ENV PORT=${PORT}
+EXPOSE ${PORT}
+
+# Polling makes file-watching reliable inside containers
+ENV WATCHPACK_POLLING=true
+ENV CHOKIDAR_USEPOLLING=true
+
+CMD ["sh", "-c", "npm run dev -- --port ${PORT} --hostname 0.0.0.0"]

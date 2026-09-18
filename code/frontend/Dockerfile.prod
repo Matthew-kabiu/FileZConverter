@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1
+# Prod: multi-stage standalone. bookworm-slim (not alpine) — LibreOffice
+# headless (approved conversion engine for legacy DOC/ODT/RTF lanes) needs
+# glibc. Converted files live in tmp only and are deleted after response.
+FROM node:20-bookworm-slim AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+
+FROM node:20-bookworm-slim AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_APP_NAME
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN --mount=type=cache,target=/app/.next/cache npm run build
+
+FROM node:20-bookworm-slim AS production
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
+    poppler-utils \
+    fonts-dejavu \
+    wget \
+  && rm -rf /var/lib/apt/lists/* \
+  && addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ARG PORT
+ENV PORT=${PORT}
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=builder --chown=appuser:appgroup /app/.next/standalone ./
+COPY --from=builder --chown=appuser:appgroup /app/.next/static ./.next/static
+COPY --from=builder --chown=appuser:appgroup /app/public ./public
+
+USER appuser
+EXPOSE ${PORT}
+CMD ["node", "server.js"]
