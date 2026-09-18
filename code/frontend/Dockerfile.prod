@@ -24,9 +24,11 @@ RUN mkdir -p public
 ARG PORT
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_APP_NAME
+ARG NEXT_PUBLIC_REPO_URL
 ENV PORT=${PORT}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
+ENV NEXT_PUBLIC_REPO_URL=${NEXT_PUBLIC_REPO_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN --mount=type=cache,target=/app/.next/cache \
   node -e "console.log('[builder] PostCSS:', require.resolve('@tailwindcss/postcss')); require('@tailwindcss/postcss'); require('typescript')" \

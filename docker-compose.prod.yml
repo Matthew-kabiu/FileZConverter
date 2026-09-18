@@ -8,6 +8,7 @@ services:
         PORT: ${PORT:?set in env}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
         NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME}
+        NEXT_PUBLIC_REPO_URL: ${NEXT_PUBLIC_REPO_URL:-}
     expose:
       - "${PORT}"
     env_file: .env
