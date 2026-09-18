@@ -6,7 +6,7 @@
 > PDF conversions run on your own server and are deleted the moment your
 > download is ready. Nothing is ever stored, logged, or sent to a third party.
 
-Built by **SpookieLabsInc** as the successor to SpookieFiles (a view-only file
+Built by **TriffixSolutions** as the successor to SpookieFiles (a view-only file
 renderer): same privacy DNA, now with real conversion and editing.
 
 ---
