@@ -51,7 +51,7 @@ export function PreviewPane({
         }
       >
         <div
-          className="overflow-y-auto rounded-xl border border-ocean-500/15 bg-white/50 p-4 text-sm dark:border-white/10 dark:bg-black/20"
+          className="max-w-full overflow-auto rounded-xl border border-ocean-500/15 bg-white/50 p-4 text-sm dark:border-white/10 dark:bg-black/20"
           style={{ height }}
         >
           {expanded ? (
@@ -82,7 +82,7 @@ export function PreviewPane({
             aria-modal="true"
             aria-label={`${label} full page`}
             onClick={(e) => e.stopPropagation()}
-            className="w-[85vw] rounded-2xl border border-ocean-500/20 bg-white p-4 shadow-2xl sm:p-6 dark:border-white/10 dark:bg-twilight-300"
+            className="w-[92%] rounded-2xl border border-ocean-500/20 bg-white p-4 shadow-2xl sm:p-6 dark:border-white/10 dark:bg-twilight-300"
           >
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-lg font-semibold">{label}</h2>
@@ -95,7 +95,7 @@ export function PreviewPane({
                 <X size={16} aria-hidden />
               </button>
             </div>
-            <div className="max-h-[80vh] overflow-y-auto text-sm">{children}</div>
+            <div className="max-h-[80vh] max-w-full overflow-auto text-sm">{children}</div>
           </div>
         </div>
       )}

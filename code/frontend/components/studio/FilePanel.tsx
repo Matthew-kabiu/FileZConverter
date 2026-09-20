@@ -40,7 +40,7 @@ export function FilePanel({
   return (
     <aside
       aria-label="Uploaded files"
-      className="rounded-2xl border border-ocean-500/15 bg-white/80 p-3 shadow-sm xl:sticky xl:top-4 xl:max-h-[80vh] xl:w-64 xl:shrink-0 xl:overflow-y-auto dark:border-white/10 dark:bg-twilight-300/70"
+      className="min-w-0 max-w-full rounded-2xl border border-ocean-500/15 bg-white/80 p-3 shadow-sm xl:sticky xl:top-4 xl:w-64 xl:shrink-0 xl:overflow-y-auto dark:border-white/10 dark:bg-twilight-300/70"
     >
       <div className="mb-2 flex items-center justify-between px-1">
         <span className="font-display text-sm font-semibold">

@@ -57,7 +57,7 @@ export function EditorPane({
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         spellCheck={false}
-        className="w-full resize-y rounded-xl border border-ocean-500/15 bg-twilight-200/[0.03] p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-surf-500/60 dark:border-white/10 dark:bg-black/20"
+        className="w-full max-w-full resize-y rounded-xl border border-ocean-500/15 bg-twilight-200/[0.03] p-3 font-mono text-[13px] leading-relaxed outline-none focus:border-surf-500/60 dark:border-white/10 dark:bg-black/20"
       />
     </StudioCard>
   );
