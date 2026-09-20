@@ -145,12 +145,37 @@ export function WordStudio() {
     setWorking(true);
     try {
       // Word formats have no browser engine: extract each to Markdown on
-      // the server once, then everything else edits locally.
-      for (const doc of fresh) {
-        const text = await extractWordContent(doc.file, sessionId());
-        setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, content: text, ready: true } : d)));
+      // the server once, then everything else edits locally. Files extract
+      // in parallel — one slow or stalled file must never gate the rest.
+      const results = await Promise.allSettled(
+        fresh.map(async (doc) => ({
+          doc,
+          text: await extractWordContent(doc.file, sessionId()),
+        })),
+      );
+      let ok = 0;
+      let firstError: unknown = null;
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          ok += 1;
+          const { doc, text } = result.value;
+          setDocs((prev) =>
+            prev.map((d) => (d.id === doc.id ? { ...d, content: text, ready: true } : d)),
+          );
+        } else {
+          firstError ??= result.reason;
+        }
       }
-      notify.success("Extracted — edit freely, export anywhere.");
+      const failed = results.length - ok;
+      if (failed === 0) {
+        notify.success("Extracted — edit freely, export anywhere.");
+      } else if (ok > 0) {
+        notify.warning(
+          `${ok} file${ok === 1 ? "" : "s"} extracted, ${failed} failed. Re-upload the failed file${failed === 1 ? "" : "s"}.`,
+        );
+      } else {
+        notify.error(firstError instanceof ApiClientError ? firstError : "Extraction failed.");
+      }
     } catch (err) {
       notify.error(err instanceof ApiClientError ? err : "Extraction failed.");
     } finally {
