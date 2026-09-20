@@ -82,7 +82,7 @@ class ApiClient {
       form.append("file", file, filename);
       const params = new URLSearchParams({ target });
       if (sessionId) params.set("sessionId", sessionId);
-      const res = await fetch(
+      const res = await fetchDownload(
         `${ROUTES.api.convert.document}?${params.toString()}`,
         { method: "POST", body: form, credentials: "include" },
       );
@@ -107,7 +107,7 @@ class ApiClient {
       const form = new FormData();
       form.append("file", file, filename);
       form.append("edits", JSON.stringify(edits));
-      const res = await fetch(ROUTES.api.convert.spreadsheet, {
+      const res = await fetchDownload(ROUTES.api.convert.spreadsheet, {
         method: "POST",
         body: form,
         credentials: "include",
@@ -269,8 +269,34 @@ class ApiClient {
   };
 }
 
+/**
+ * File-download fetch with a timeout. Conversions run LibreOffice server-side
+ * (60s cap) plus parsing overhead, so the budget sits well above the JSON
+ * API's 30s — but a stalled server must never hang the UI forever the way
+ * an untimed fetch does. Transport failures (including abort) surface as
+ * NETWORK_ERROR so existing toasts and handling apply unchanged.
+ */
+const DOWNLOAD_TIMEOUT_MS = 120_000;
+
+async function fetchDownload(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof ApiClientError) throw err;
+    throw new ApiClientError(
+      mapErrorToMessage("NETWORK_ERROR", 0),
+      "NETWORK_ERROR",
+      0,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function downloadBlob(url: string, form: FormData): Promise<Blob> {
-  const res = await fetch(url, {
+  const res = await fetchDownload(url, {
     method: "POST",
     body: form,
     credentials: "include",
