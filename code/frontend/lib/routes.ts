@@ -16,6 +16,23 @@ export const API_ROUTES = {
     pdf: `${API_V1}/convert/pdf`,
   },
   session: `${API_V1}/session`,
+  rag: {
+    index: `${API_V1}/rag/index`,
+    ask: `${API_V1}/ask`,
+    sessions: `${API_V1}/rag/sessions`,
+    file: `${API_V1}/rag/file`,
+  },
+  setup: {
+    status: `${API_V1}/setup/status`,
+    bootstrap: `${API_V1}/setup/bootstrap`,
+    reset: `${API_V1}/setup/reset`,
+    providers: `${API_V1}/setup/providers`,
+    prefs: `${API_V1}/setup/prefs`,
+  },
+  admin: {
+    users: `${API_V1}/admin/users`,
+    resets: `${API_V1}/admin/resets`,
+  },
 } as const;
 
 /**
@@ -27,6 +44,19 @@ export const PAGE_ROUTES = {
   word: "/word",
   spreadsheet: "/spreadsheet",
   pdf: "/pdf",
+  signIn: "/sign-in",
+  aiSetup: "/ai-setup",
+  admin: "/admin",
+  adminAi: "/admin?tab=ai",
+  adminUsers: "/admin?tab=users",
+  reset: "/reset",
 } as const;
+
+/** Opens the global sign-in modal, optionally continuing to an internal route. */
+export function getSignInRoute(next?: string): string {
+  const query = new URLSearchParams({ auth: "signin" });
+  if (next) query.set("next", next);
+  return `${PAGE_ROUTES.home}?${query.toString()}`;
+}
 
 export const ROUTES = { api: API_ROUTES, pages: PAGE_ROUTES } as const;
