@@ -1,19 +1,24 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { apiClient } from "@/lib/api/apiClient";
+import { getRagSessionId, rotateRagSessionId } from "@/lib/rag-session";
 import { ROUTES } from "@/lib/routes";
 
 /**
- * One conversion session per mount: id for server tmp attribution,
- * clear-all purge, and auto-purge on tab close (keepalive beacon).
+ * One conversion session per browser (RAG plan §1): id for server tmp
+ * attribution, clear-all purge, and auto-purge on tab close (keepalive
+ * beacon). Shared across studios via localStorage — this is also the RAG
+ * session key, so chat spans studios on this device only.
  */
 export function useConvertSession() {
-  const sessionRef = useRef<string>(crypto.randomUUID());
+  const sessionRef = useRef<string>("");
 
   useEffect(() => {
+    sessionRef.current = getRagSessionId();
     const purge = () => {
       const id = sessionRef.current;
+      if (!id) return;
       fetch(`${ROUTES.api.session}?sessionId=${encodeURIComponent(id)}`, {
         method: "DELETE",
         keepalive: true,
@@ -23,13 +28,21 @@ export function useConvertSession() {
     return () => window.removeEventListener("pagehide", purge);
   }, []);
 
-  const purgeNow = async (): Promise<void> => {
-    try {
-      await apiClient.session.purge(sessionRef.current);
-    } finally {
-      sessionRef.current = crypto.randomUUID();
+  const sessionId = useCallback(() => {
+    if (!sessionRef.current && typeof window !== "undefined") {
+      sessionRef.current = getRagSessionId();
     }
-  };
+    return sessionRef.current;
+  }, []);
 
-  return { sessionId: () => sessionRef.current, purgeNow };
+  const purgeNow = useCallback(async (): Promise<void> => {
+    try {
+      const id = sessionId();
+      if (id) await apiClient.session.purge(id);
+    } finally {
+      sessionRef.current = rotateRagSessionId();
+    }
+  }, [sessionId]);
+
+  return { sessionId, purgeNow };
 }
