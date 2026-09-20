@@ -10,6 +10,8 @@ const clientSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().min(1),
   // Optional: self-hosted forks can leave it unset to hide the GitHub link.
   NEXT_PUBLIC_REPO_URL: z.string().url().optional(),
+  // Optional: n8n webhook receiving Support form submissions. Unset = honest "not configured" state.
+  NEXT_PUBLIC_SUPPORT_WEBHOOK_URL: z.string().url().optional(),
 });
 
 // Client vars must be referenced literally for Next.js inlining.
@@ -17,6 +19,8 @@ const clientRuntime = {
   NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_REPO_URL: process.env.NEXT_PUBLIC_REPO_URL || undefined,
+  NEXT_PUBLIC_SUPPORT_WEBHOOK_URL:
+    process.env.NEXT_PUBLIC_SUPPORT_WEBHOOK_URL || undefined,
 };
 
 // NOTE: this module ships to the browser (routes.ts → error boundaries), so
