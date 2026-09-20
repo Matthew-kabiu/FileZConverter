@@ -5,10 +5,12 @@ import Link from "next/link";
 import DOMPurify from "isomorphic-dompurify";
 import { marked } from "marked";
 import {
+  Bot,
+  BotMessageSquare,
   CircleCheck,
+  LifeBuoy,
   LoaderCircle,
   LogOut,
-  MessageCircle,
   Send,
   Sparkles,
   Settings2,
@@ -23,6 +25,8 @@ import { getSignInRoute, ROUTES } from "@/lib/routes";
 import { useDismiss } from "@/hooks/useDismiss";
 import { getRagSessionId, rotateRagSessionId } from "@/lib/rag-session";
 import { cn } from "@/lib/utils/cn";
+import { OPEN_SUPPORT_EVENT } from "@/components/site/SiteFooter";
+import { SupportForm } from "@/components/support/SupportForm";
 import {
   RAG_INDEX_EVENT,
   RAG_RETRY_EVENT,
@@ -70,11 +74,11 @@ function MarkdownMessage({ text }: { text: string }) {
 }
 
 /**
- * Floating RAG chat (RAG plan §5 UI): bottom-right FAB opening a themed
- * panel. Mobile-first bottom sheet, floating card on sm+. Backend
- * (`POST /api/v1/ask`) lands in P5 — until then every state is honest:
- * setup-required, sign-in-required, and backend-missing are all surfaced
- * instead of faked.
+ * Floating assistant cluster (RAG plan §5 UI + support): bottom-right FAB
+ * opening a two-item menu — Chatbot (Snow RAG chat) and Support (feedback
+ * form to the n8n webhook). Mobile-first bottom sheet, floating card on sm+.
+ * Backend (`POST /api/v1/ask`) states stay honest: setup-required,
+ * sign-in-required, and backend-missing are all surfaced instead of faked.
  */
 export function ChatFab({
   user,
@@ -87,7 +91,8 @@ export function ChatFab({
   onSignOut: () => Promise<void>;
   onRequireAuth: (question?: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [panel, setPanel] = useState<null | "chat" | "support">(null);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState(initialDraft);
@@ -106,13 +111,27 @@ export function ChatFab({
   >(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const fabMenuRef = useRef<HTMLDivElement | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
-  const closeChat = () => {
+  const open = panel !== null;
+  const closeAll = () => {
+    setFabMenuOpen(false);
     setMenuOpen(false);
-    setOpen(false);
+    setPanel(null);
   };
-  useDismiss(wrapRef, closeChat, open && !menuOpen);
+  useDismiss(wrapRef, closeAll, open && !menuOpen && !fabMenuOpen);
   useDismiss(menuRef, () => setMenuOpen(false), menuOpen);
+  useDismiss(fabMenuRef, () => setFabMenuOpen(false), fabMenuOpen);
+
+  // Footer Contact/Support links open the support panel from anywhere.
+  useEffect(() => {
+    const onSupport = () => {
+      setFabMenuOpen(false);
+      setPanel("support");
+    };
+    window.addEventListener(OPEN_SUPPORT_EVENT, onSupport);
+    return () => window.removeEventListener(OPEN_SUPPORT_EVENT, onSupport);
+  }, []);
 
   useEffect(() => {
     const onIndex = (event: Event) => {
@@ -130,12 +149,12 @@ export function ChatFab({
     return () => window.removeEventListener(RAG_INDEX_EVENT, onIndex);
   }, []);
   useEffect(() => {
-    if (!open) return;
+    if (panel !== "chat") return;
     const frame = window.requestAnimationFrame(() => {
       transcriptEndRef.current?.scrollIntoView({ block: "nearest" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [messages, notice, open, sendState]);
+  }, [messages, notice, panel, sendState]);
   const initial = (user?.name ?? user?.email ?? "?").trim().charAt(0).toUpperCase() || "?";
   const isAdmin = user?.role === "admin";
 
@@ -213,7 +232,7 @@ export function ChatFab({
       ref={wrapRef}
       className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-50 w-[calc(100%_-_2rem)] max-w-96 -translate-x-1/2 sm:right-6 sm:left-auto sm:w-96 sm:translate-x-0"
     >
-      {open && (
+      {panel === "chat" && (
         <div
           role="dialog"
           aria-label="Snow — ask your files"
@@ -314,7 +333,7 @@ export function ChatFab({
               )}
               <button
                 type="button"
-                onClick={closeChat}
+                onClick={closeAll}
                 aria-label="Close chat"
                 className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg opacity-70 transition-colors hover:bg-ocean-500/10 hover:opacity-100"
               >
@@ -481,23 +500,89 @@ export function ChatFab({
           </form>
         </div>
       )}
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => {
-            if (open) closeChat();
-            else setOpen(true);
-          }}
-          aria-expanded={open}
-          aria-label={open ? "Close Snow chat" : "Open Snow chat"}
-          className="inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-ocean-500 to-surf-500 text-white shadow-lg shadow-ocean-500/25 transition-transform hover:scale-105"
+      {panel === "support" && (
+        <div
+          role="dialog"
+          aria-label="Support — submit feedback"
+          className="relative mb-3 flex max-h-[70dvh] w-full flex-col overflow-hidden rounded-2xl border border-ocean-500/15 bg-white/95 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-twilight-300/95"
         >
-          {open ? (
-            <X size={20} aria-hidden />
-          ) : (
-            <MessageCircle size={20} aria-hidden />
+          <SupportForm onClose={closeAll} />
+        </div>
+      )}
+      <div className="flex justify-end">
+        <div ref={fabMenuRef} className="relative">
+          {fabMenuOpen && !open && (
+            <div
+              role="menu"
+              aria-label="Assistant menu"
+              className="absolute right-0 bottom-14 z-20 w-52 rounded-xl border border-ocean-500/15 bg-white p-1.5 font-display shadow-xl dark:border-white/10 dark:bg-twilight-300"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setFabMenuOpen(false);
+                  setPanel("chat");
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm opacity-80 transition-colors hover:bg-ocean-500/10 hover:opacity-100"
+              >
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-ocean-500 to-surf-500 text-white">
+                  <Bot size={16} aria-hidden />
+                </span>
+                <span className="text-left">
+                  <span className="block font-semibold">Chatbot</span>
+                  <span className="block text-xs opacity-60">
+                    Ask Snow about files
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setFabMenuOpen(false);
+                  setPanel("support");
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm opacity-80 transition-colors hover:bg-ocean-500/10 hover:opacity-100"
+              >
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-ocean-500/20 dark:border-white/15">
+                  <LifeBuoy size={16} aria-hidden />
+                </span>
+                <span className="text-left">
+                  <span className="block font-semibold">Support</span>
+                  <span className="block text-xs opacity-60">
+                    Report a bug or idea
+                  </span>
+                </span>
+              </button>
+            </div>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (open) closeAll();
+              else setFabMenuOpen((v) => !v);
+            }}
+            aria-expanded={open || fabMenuOpen}
+            aria-haspopup={fabMenuOpen ? "menu" : undefined}
+            aria-label={
+              open
+                ? "Close assistant"
+                : fabMenuOpen
+                  ? "Close assistant menu"
+                  : "Open assistant menu"
+            }
+            className="inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-ocean-500 to-surf-500 text-white shadow-lg shadow-ocean-500/25 transition-transform hover:scale-105"
+          >
+            {open ? (
+              <X size={20} aria-hidden />
+            ) : fabMenuOpen ? (
+              <X size={20} aria-hidden />
+            ) : (
+              <BotMessageSquare size={20} aria-hidden />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
