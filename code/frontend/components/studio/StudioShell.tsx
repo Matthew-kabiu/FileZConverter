@@ -38,7 +38,9 @@ export function StudioShell({
         <p className="mx-auto mt-3 max-w-2xl text-sm opacity-70 sm:text-lg">
           {subtitle}
         </p>
-        {toolbar && <div className="mt-4 flex justify-center">{toolbar}</div>}
+        {toolbar && (
+          <div className="relative z-30 mt-4 flex justify-center">{toolbar}</div>
+        )}
       </div>
       {panel ? (
         <div className="mt-8 flex min-w-0 flex-col gap-4 xl:flex-row">

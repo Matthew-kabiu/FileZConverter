@@ -110,7 +110,7 @@ export function Select({
           role="listbox"
           aria-label={ariaLabel}
           className={cn(
-            "absolute right-0 z-50 max-h-60 min-w-full overflow-y-auto rounded-xl border border-ocean-500/15 bg-white p-1.5 font-display shadow-2xl shadow-ocean-950/15",
+            "absolute right-0 z-[80] max-h-60 min-w-full overflow-y-auto rounded-xl border border-ocean-500/15 bg-white p-1.5 font-display shadow-2xl shadow-ocean-950/15",
             "dark:border-white/10 dark:bg-twilight-300 dark:shadow-black/35",
             openUp ? "bottom-full mb-1.5" : "top-full mt-1.5",
           )}
