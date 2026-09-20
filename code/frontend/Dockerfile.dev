@@ -1,20 +1,71 @@
 # syntax=docker/dockerfile:1
 # Dev: hot reload. bookworm-slim (not alpine) so LibreOffice headless runs
 # here too — the legacy DOC/ODT/RTF lane converts via soffice in dev as well.
-FROM node:20-bookworm-slim
+#
+# Speed shape:
+#   1. `base` makes apt's download cache actually survive (see below).
+#   2. `system` (LibreOffice apt) and `deps` (toolchain + npm ci) are
+#      independent stages, so BuildKit builds them IN PARALLEL — wall time is
+#      max(apt, npm) not the sum.
+#   3. Code changes never retrigger either stage (only package*.json does).
+FROM node:20-bookworm-slim AS base
 
-WORKDIR /app
+# Debian images ship /etc/apt/apt.conf.d/docker-clean, which deletes every .deb
+# immediately after install AND sets Keep-Downloaded-Packages "false". With it
+# in place a --mount=type=cache on /var/cache/apt caches NOTHING: every rebuild
+# re-downloads ~1GB of LibreOffice. Removing it is what makes the cache real.
+# ForceIPv4 + Retries guard against the stalled-IPv6-route case that makes
+# deb.debian.org crawl at KB/s on some networks.
+RUN set -eux; \
+    rm -f /etc/apt/apt.conf.d/docker-clean; \
+    printf '%s\n' \
+      'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+      'Acquire::Retries "5";' \
+      'Acquire::ForceIPv4 "true";' \
+      > /etc/apt/apt.conf.d/99docker-build
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+FROM base AS system
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-writer \
     libreoffice-calc \
     libreoffice-impress \
     poppler-utils \
-    fonts-dejavu \
-  && rm -rf /var/lib/apt/lists/*
+    fonts-dejavu
 
+FROM base AS deps
+
+WORKDIR /app
+
+# Native modules (better-sqlite3, onnxruntime) fall back to node-gyp when no
+# prebuilt binary matches — toolchain lives ONLY in this stage, not the
+# final image.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++
+
+# onnxruntime-node's install script downloads the CUDA 12 execution provider
+# from api.nuget.org (linux/x64 is the only platform with a non-bundled
+# requirement). This container is CPU-only, so that download is dead weight —
+# and it hard-fails the build when the container can't resolve api.nuget.org.
+# "skip" makes the script exit 0 immediately; the CPU binaries ship bundled.
+ENV ONNXRUNTIME_NODE_INSTALL=skip
 COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --no-audit --no-fund --prefer-offline
+
+FROM system
+
+WORKDIR /app
+
+# Same base image in every stage, so native bindings built in `deps` run here.
+COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
 
 # Source is volume-mounted at runtime for hot reload
 ARG PORT

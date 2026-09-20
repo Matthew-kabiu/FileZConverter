@@ -2,15 +2,45 @@
 # Prod: multi-stage standalone. bookworm-slim (not alpine) — LibreOffice
 # headless (approved conversion engine for legacy DOC/ODT/RTF lanes) needs
 # glibc. Converted files live in tmp only and are deleted after response.
-FROM node:20-bookworm-slim AS deps
+#
+# `base` exists so apt's download cache actually survives between builds; every
+# stage derives from it. See the comment on that stage.
+FROM node:20-bookworm-slim AS base
+
+# Debian images ship /etc/apt/apt.conf.d/docker-clean, which deletes every .deb
+# immediately after install AND sets Keep-Downloaded-Packages "false". With it
+# in place a --mount=type=cache on /var/cache/apt caches NOTHING: every rebuild
+# re-downloads ~1GB of LibreOffice. Removing it is what makes the cache real.
+# ForceIPv4 + Retries guard against the stalled-IPv6-route case that makes
+# deb.debian.org crawl at KB/s on some networks.
+RUN set -eux; \
+    rm -f /etc/apt/apt.conf.d/docker-clean; \
+    printf '%s\n' \
+      'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+      'Acquire::Retries "5";' \
+      'Acquire::ForceIPv4 "true";' \
+      > /etc/apt/apt.conf.d/99docker-build
+
+FROM base AS deps
 WORKDIR /app
+# Native modules (better-sqlite3, onnxruntime) fall back to node-gyp when no
+# prebuilt binary matches — toolchain must exist before npm ci.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends python3 make g++
+# onnxruntime-node's install script downloads the CUDA 12 execution provider
+# from api.nuget.org (linux/x64 is the only platform with a non-bundled
+# requirement). This container is CPU-only, so that download is dead weight —
+# and it hard-fails the build when the container can't resolve api.nuget.org.
+# "skip" makes the script exit 0 immediately; the CPU binaries ship bundled.
+ENV ONNXRUNTIME_NODE_INSTALL=skip
 COPY package*.json ./
 # Coolify can inject NODE_ENV=production into every stage. CSS and TypeScript
 # tooling are devDependencies but are required to build the production app.
-RUN --mount=type=cache,target=/root/.npm npm ci --include=dev \
+RUN --mount=type=cache,target=/root/.npm,sharing=locked npm ci --include=dev --no-audit --no-fund --prefer-offline \
   && node -e "require('@tailwindcss/postcss'); require('typescript'); console.log('[deps] Build dependencies load successfully')"
 
-FROM node:20-bookworm-slim AS builder
+FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,25 +55,31 @@ ARG PORT
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_APP_NAME
 ARG NEXT_PUBLIC_REPO_URL
+# Build-only dummy: auth.ts requires a secret at import (prerender), but
+# nothing signs or verifies sessions during the build — runtime uses the real
+# secret from env_file. Never put the real secret in a build arg (it would
+# persist in image history).
+ARG BETTER_AUTH_SECRET=build-only-dummy-secret-0123456789abcdef0123456789abcdef
 ENV PORT=${PORT}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}
 ENV NEXT_PUBLIC_REPO_URL=${NEXT_PUBLIC_REPO_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN --mount=type=cache,target=/app/.next/cache \
+RUN --mount=type=cache,target=/app/.next/cache,sharing=locked \
   node -e "console.log('[builder] PostCSS:', require.resolve('@tailwindcss/postcss')); require('@tailwindcss/postcss'); require('typescript')" \
   && npm run build
 
-FROM node:20-bookworm-slim AS production
+FROM base AS production
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-writer \
     libreoffice-calc \
     libreoffice-impress \
     poppler-utils \
     fonts-dejavu \
     wget \
-  && rm -rf /var/lib/apt/lists/* \
   && addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 
 ENV NODE_ENV=production
