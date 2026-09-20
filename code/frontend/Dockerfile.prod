@@ -80,7 +80,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     poppler-utils \
     fonts-dejavu \
     wget \
-  && addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+  && addgroup --system appgroup \
+  && adduser --system --ingroup appgroup appuser \
+  && install -d -o appuser -g appgroup /app/data
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
