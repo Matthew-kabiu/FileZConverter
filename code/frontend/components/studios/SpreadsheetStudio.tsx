@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Pencil, Upload } from "lucide-react";
 import { StudioCard, StudioShell } from "@/components/studio/StudioShell";
 import { Dropzone } from "@/components/studio/Dropzone";
@@ -10,8 +10,11 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { notify } from "@/components/feedback/toast";
 import { useConvertSession } from "@/hooks/useConvertSession";
+import { useRagIndexFiles } from "@/hooks/useRagIndex";
+import { getRagSessionId } from "@/lib/rag-session";
 import { usePresetTarget } from "@/hooks/usePresetTarget";
 import { apiClient, ApiClientError } from "@/lib/api/apiClient";
+import { loadStudioSnapshot, saveStudioSnapshot } from "@/lib/storage/studioStore";
 import { extOf, outputName, targetsFor } from "@/lib/tools/tools";
 
 interface SheetData {
@@ -28,6 +31,12 @@ interface WorkbookFile {
 }
 
 const ACCEPT = ["xlsx", "xls", "ods", "csv"];
+const SNAPSHOT_KEY = "spreadsheet";
+
+interface SpreadsheetSnapshot {
+  books: WorkbookFile[];
+  activeId: string | null;
+}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -35,9 +44,52 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+async function loadSpreadsheet(file: File, sessionId: string): Promise<SheetData[]> {
+  if (extOf(file.name) === "csv") {
+    const { parseCsv } = await import("@/lib/convert/csv");
+    return [{ name: "sheet1", rows: parseCsv(await file.text()) }];
+  }
+  if (extOf(file.name) === "xlsx") {
+    const { default: ExcelJS } = await import("exceljs");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const out: SheetData[] = [];
+    wb.eachSheet((ws) => {
+      const rows: (string | number)[][] = [];
+      ws.eachRow((row) => {
+        const cells: (string | number)[] = [];
+        row.eachCell((cell) => {
+          const value = cell.value;
+          cells.push(
+            typeof value === "string" || typeof value === "number"
+              ? value
+              : (cell.text ?? ""),
+          );
+        });
+        rows.push(cells);
+      });
+      out.push({ name: ws.name, rows });
+    });
+    return out;
+  }
+
+  const blob = await apiClient.convert.document(file, file.name, "csv", sessionId);
+  const text = await blob.text();
+  return [
+    {
+      name: "sheet1",
+      rows: text
+        .split(/\r?\n/)
+        .filter((line) => line.length > 0)
+        .map((line) => line.split(",")),
+    },
+  ];
+}
+
 export function SpreadsheetStudio() {
   const [books, setBooks] = useState<WorkbookFile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
   const [target, setTarget] = usePresetTarget(
     ["csv", "pdf", "html", "xlsx"],
     "csv",
@@ -48,40 +100,66 @@ export function SpreadsheetStudio() {
   const [editValue, setEditValue] = useState("");
   const { sessionId } = useConvertSession();
 
+  useEffect(() => {
+    let active = true;
+    void loadStudioSnapshot<SpreadsheetSnapshot>(SNAPSHOT_KEY).then((snapshot) => {
+      if (!active) return;
+      const saved = Array.isArray(snapshot?.books)
+        ? snapshot.books.filter(
+            (book) =>
+              typeof book?.id === "string" &&
+              book?.file instanceof File &&
+              Array.isArray(book?.sheets) &&
+              typeof book?.activeSheet === "number" &&
+              typeof book?.ready === "boolean",
+          )
+        : [];
+      if (saved.length > 0) {
+        setBooks(saved);
+        setActiveId(
+          snapshot?.activeId && saved.some((book) => book.id === snapshot.activeId)
+            ? snapshot.activeId
+            : saved[0].id,
+        );
+        const pending = saved.filter((book) => !book.ready || book.sheets.length === 0);
+        if (pending.length > 0) {
+          setWorking(true);
+          void (async () => {
+            try {
+              for (const book of pending) {
+                const sheets = await loadSpreadsheet(book.file, sessionId());
+                if (!active) return;
+                setBooks((current) =>
+                  current.map((entry) =>
+                    entry.id === book.id ? { ...entry, sheets, ready: true } : entry,
+                  ),
+                );
+              }
+            } catch {
+              if (active) notify.error("A restored spreadsheet could not finish loading.");
+            } finally {
+              if (active) setWorking(false);
+            }
+          })();
+        }
+      }
+      setRestored(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!restored) return;
+    saveStudioSnapshot(SNAPSHOT_KEY, { books, activeId } satisfies SpreadsheetSnapshot);
+  }, [books, activeId, restored]);
+
   const active = books.find((b) => b.id === activeId) ?? null;
   const sheetTargets = active
     ? targetsFor(extOf(active.file.name))
     : ["csv", "pdf"];
   const currentTarget = sheetTargets.includes(target) ? target : sheetTargets[0];
-
-  const parseXlsxInBrowser = async (file: File): Promise<SheetData[]> => {
-    if (extOf(file.name) === "csv") {
-      const { parseCsv } = await import("@/lib/convert/csv");
-      const text = await file.text();
-      return [{ name: "sheet1", rows: parseCsv(text) }];
-    }
-    const { default: ExcelJS } = await import("exceljs");
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(await file.arrayBuffer());
-    const out: SheetData[] = [];
-    wb.eachSheet((ws) => {
-      const rows: (string | number)[][] = [];
-      ws.eachRow((row) => {
-        const cells: (string | number)[] = [];
-        row.eachCell((cell) => {
-          const v = cell.value;
-          cells.push(
-            typeof v === "string" || typeof v === "number"
-              ? v
-              : (cell.text ?? ""),
-          );
-        });
-        rows.push(cells);
-      });
-      out.push({ name: ws.name, rows });
-    });
-    return out;
-  };
 
   const onFiles = async (incoming: FileList | File[]) => {
     const accepted = Array.from(incoming).filter((file) => {
@@ -102,29 +180,7 @@ export function SpreadsheetStudio() {
     setWorking(true);
     try {
       for (const book of fresh) {
-        let sheets: SheetData[];
-        if (["xlsx", "csv"].includes(extOf(book.file.name))) {
-          sheets = await parseXlsxInBrowser(book.file);
-        } else {
-          // Legacy/ODT sheets have no browser engine: convert to CSV on the
-          // server once, then preview from text.
-          const blob = await apiClient.convert.document(
-            book.file,
-            book.file.name,
-            "csv",
-            sessionId(),
-          );
-          const text = await blob.text();
-          sheets = [
-            {
-              name: "sheet1",
-              rows: text
-                .split(/\r?\n/)
-                .filter((l) => l.length > 0)
-                .map((l) => l.split(",")),
-            },
-          ];
-        }
+        const sheets = await loadSpreadsheet(book.file, sessionId());
         setBooks((prev) =>
           prev.map((b) => (b.id === book.id ? { ...b, sheets, ready: true } : b)),
         );
@@ -137,12 +193,20 @@ export function SpreadsheetStudio() {
     }
   };
 
-  const removeBook = (id: string) =>
+  const removeBook = (id: string) => {
+    const book = books.find((b) => b.id === id);
+    if (book) {
+      // Best-effort: drop the removed file's vectors so Snow forgets it.
+      apiClient.rag
+        .removeFile({ sessionId: getRagSessionId(), studio: "spreadsheet", fileName: book.file.name })
+        .catch(() => undefined);
+    }
     setBooks((prev) => {
       const rest = prev.filter((b) => b.id !== id);
       if (activeId === id) setActiveId(rest[0]?.id ?? null);
       return rest;
     });
+  };
 
   const setSheet = (index: number) => {
     if (!activeId) return;
@@ -224,6 +288,21 @@ export function SpreadsheetStudio() {
   };
 
   const current = active?.sheets[active.activeSheet];
+
+  const bookFiles = useMemo(
+    () =>
+      books.map((book) => {
+        const sheet = book.sheets[book.activeSheet];
+        if (!sheet || sheet.rows.length === 0) return { fileName: book.file.name, text: "" };
+        const head = [`Sheet: ${sheet.name}`];
+        const lines = sheet.rows
+          .slice(0, 200)
+          .map((row) => row.map((cell) => String(cell)).join(" | "));
+        return { fileName: book.file.name, text: [...head, ...lines].join("\n") };
+      }),
+    [books],
+  );
+  useRagIndexFiles("spreadsheet", bookFiles);
 
   return (
     <StudioShell
@@ -309,9 +388,9 @@ export function SpreadsheetStudio() {
             emptyHint="Your spreadsheet preview will appear here."
           >
             {current && current.rows.length > 0 ? (
-              <div>
+              <div className="min-w-0 max-w-full">
                 {active.sheets.length > 1 && (
-                  <div className="mb-2 flex gap-1 overflow-x-auto">
+                  <div className="mb-2 flex max-w-full gap-1 overflow-x-auto">
                     {active.sheets.map((s, i) => (
                       <button
                         key={s.name}
@@ -328,7 +407,8 @@ export function SpreadsheetStudio() {
                     ))}
                   </div>
                 )}
-                <table className="w-full border-collapse font-mono text-xs">
+                <div className="max-w-full overflow-x-auto">
+                  <table className="w-full border-collapse font-mono text-xs">
                   <tbody>
                     {current.rows.slice(0, 200).map((row, ri) => (
                       <tr key={ri}>
@@ -343,7 +423,8 @@ export function SpreadsheetStudio() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+                </div>
                 {current.rows.length > 200 && (
                   <p className="mt-2 text-[11px] opacity-60">
                     Showing first 200 of {current.rows.length} rows.
