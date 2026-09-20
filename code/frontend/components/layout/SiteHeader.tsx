@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
-import { ChevronDown, Files, Wrench } from "lucide-react";
+import { ChevronDown, Files, Menu, Wrench, X } from "lucide-react";
+import { authClient } from "@/lib/auth/client";
+import { ROUTES } from "@/lib/routes";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useDismiss } from "@/hooks/useDismiss";
 import { MORE_TOOLS, STUDIO_TOOLS, toolHref } from "@/lib/tools/tools";
@@ -52,11 +54,23 @@ function NavLink({
 export function SiteHeader() {
   const pathname = usePathname();
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement | null>(null);
+  const mobileRef = useRef<HTMLDivElement | null>(null);
   useDismiss(toolsRef, () => setToolsOpen(false), toolsOpen);
+  useDismiss(mobileRef, () => setMobileOpen(false), mobileOpen);
+
+  const closeMobile = () => setMobileOpen(false);
+
+  const { data: session } = authClient.useSession();
+  const isAdmin =
+    (session?.user as { role?: string } | undefined)?.role === "admin";
 
   return (
-    <header className="relative z-40 flex h-16 shrink-0 items-center justify-between border-b border-ocean-500/15 bg-white/70 px-4 backdrop-blur sm:px-6 dark:border-white/10 dark:bg-twilight-300/70">
+    <header
+      ref={mobileRef}
+      className="relative z-40 flex h-16 shrink-0 items-center justify-between border-b border-ocean-500/15 bg-white/70 px-4 backdrop-blur sm:px-6 dark:border-white/10 dark:bg-twilight-300/70"
+    >
       <Link href="/" className="flex shrink-0 items-center gap-2.5">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-ocean-500 to-surf-500 text-white shadow-lg shadow-ocean-500/25">
           <Files size={18} aria-hidden />
@@ -113,6 +127,22 @@ export function SiteHeader() {
                     {tool.label}
                   </Link>
                 ))}
+                {isAdmin && (
+                  <>
+                    <div
+                      aria-hidden
+                      className="mx-3 my-1 border-t border-ocean-500/10 dark:border-white/10"
+                    />
+                    <Link
+                      href={ROUTES.pages.adminUsers}
+                      role="menuitem"
+                      onClick={() => setToolsOpen(false)}
+                      className="block cursor-pointer rounded-lg px-3 py-1.5 text-sm opacity-80 transition-colors hover:bg-ocean-500/10 hover:opacity-100"
+                    >
+                      Admin
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -139,8 +169,88 @@ export function SiteHeader() {
             </svg>
           </a>
         )}
-        <ThemeToggle />
+        <span className="hidden md:inline-flex">
+          <ThemeToggle />
+        </span>
+        <button
+          type="button"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-frost-500/40 bg-white/60 text-twilight-300 transition-colors hover:bg-frost-800 md:hidden dark:border-white/10 dark:bg-twilight-400/60 dark:text-frost-800 dark:hover:bg-white/10"
+        >
+          {mobileOpen ? (
+            <X size={18} aria-hidden />
+          ) : (
+            <Menu size={18} aria-hidden />
+          )}
+        </button>
       </div>
+      {mobileOpen && (
+        <div
+          id="mobile-nav"
+          className="absolute inset-x-0 top-full z-50 border-b border-ocean-500/15 bg-white shadow-xl md:hidden dark:border-white/10 dark:bg-twilight-300"
+        >
+          <nav aria-label="Mobile" className="max-h-[70vh] overflow-y-auto px-4 py-3">
+            <p className="px-2 pb-1 font-display text-xs font-semibold tracking-wide opacity-60">
+              Studios
+            </p>
+            {STUDIO_TOOLS.map((tool) => {
+              const active = pathname === tool.href;
+              return (
+                <Link
+                  key={tool.slug}
+                  href={tool.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={closeMobile}
+                  className={cn(
+                    "block rounded-lg px-3 py-2.5 font-display text-sm font-medium transition-colors",
+                    active
+                      ? "bg-ocean-500/10 text-ocean-400 dark:text-surf-600"
+                      : "opacity-80 hover:bg-ocean-500/10 hover:opacity-100",
+                  )}
+                >
+                  {tool.navLabel}
+                </Link>
+              );
+            })}
+            <p className="px-2 pt-3 pb-1 font-display text-xs font-semibold tracking-wide opacity-60">
+              Tools
+            </p>
+            {MORE_TOOLS.map((tool) => (
+              <Link
+                key={tool.label}
+                href={toolHref(tool)}
+                onClick={closeMobile}
+                className="block rounded-lg px-3 py-2.5 text-sm opacity-80 transition-colors hover:bg-ocean-500/10 hover:opacity-100"
+              >
+                {tool.label}
+              </Link>
+            ))}
+            {isAdmin && (
+              <>
+                <p className="px-2 pt-3 pb-1 font-display text-xs font-semibold tracking-wide opacity-60">
+                  Account
+                </p>
+                <Link
+                  href={ROUTES.pages.adminUsers}
+                  onClick={closeMobile}
+                  className="block rounded-lg px-3 py-2.5 text-sm opacity-80 transition-colors hover:bg-ocean-500/10 hover:opacity-100"
+                >
+                  Admin
+                </Link>
+              </>
+            )}
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-ocean-500/15 px-3 py-2.5 dark:border-white/10">
+              <span className="font-display text-sm font-medium opacity-80">
+                Theme
+              </span>
+              <ThemeToggle />
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
