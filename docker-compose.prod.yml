@@ -1,6 +1,9 @@
 services:
   web:
     container_name: filezconverter_prod
+    depends_on:
+      redis:
+        condition: service_healthy
     build:
       context: ./code/frontend
       dockerfile: Dockerfile.prod
@@ -12,6 +15,8 @@ services:
     ports:
       - "${PORT}:${PORT}"
     env_file: .env
+    volumes:
+      - app-data:/app/data
     deploy:
       resources:
         limits: { cpus: '1', memory: 2G }
@@ -22,3 +27,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  redis:
+    container_name: filezconverter_redis_prod
+    image: redis/redis-stack:7.4.0-v1
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set in env}", "--save", "", "--appendonly", "no"]
+    deploy:
+      resources:
+        limits: { cpus: '0.5', memory: 512M }
+        reservations: { cpus: '0.1', memory: 128M }
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?set in env}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  app-data: {}
