@@ -3,8 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingIncludes: {
-    "/api/v1/ask": ["./node_modules/onnxruntime-node/**/*"],
-    "/api/v1/rag/index": ["./node_modules/onnxruntime-node/**/*"],
+    "/api/v1/ask": [
+      "./node_modules/onnxruntime-node/**/*",
+      "./node_modules/onnxruntime-common/**/*",
+    ],
+    "/api/v1/rag/index": [
+      "./node_modules/onnxruntime-node/**/*",
+      "./node_modules/onnxruntime-common/**/*",
+    ],
   },
   poweredByHeader: false,
   async headers() {
