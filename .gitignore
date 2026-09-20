@@ -9,10 +9,13 @@ docs/Frontend-UI-Motion-Tooling-Standard.md
 .env
 .env.*
 !.env.example
+!.env.test
 node_modules/
 *.bak
 backups/
 *.dump
+# Auth + app SQLite (RAG plan §2) — local/dev only, never committed.
+data/
 
 # >>> stride (auto-managed, do not edit) >>>
 .claude/commands/linear/

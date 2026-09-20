@@ -16,6 +16,9 @@ jobs:
       PORT: "3000"
       NEXT_PUBLIC_API_BASE_URL: http://localhost:3000/api
       NEXT_PUBLIC_APP_NAME: FilezConverter
+      # Auth code requires these at import/build time; test-only values.
+      BETTER_AUTH_SECRET: "ci-test-secret-0123456789abcdef0123456789abcdef"
+      BETTER_AUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
 
