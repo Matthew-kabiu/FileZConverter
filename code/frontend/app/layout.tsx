@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import localFont from "next/font/local";
 import { Toaster } from "sonner";
 import { AppTooltip } from "@/components/ui/AppTooltip";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { AuthCluster } from "@/components/rag/AuthCluster";
 import "./globals.css";
 
 const outfit = localFont({
@@ -53,6 +55,9 @@ export default function RootLayout({
           </div>
           <Toaster position="top-right" richColors closeButton />
           <AppTooltip />
+          <Suspense fallback={null}>
+            <AuthCluster />
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>

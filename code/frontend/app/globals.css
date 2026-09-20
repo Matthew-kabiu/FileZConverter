@@ -98,6 +98,8 @@
   font-size: 0.95rem;
   line-height: 1.85;
   overflow-wrap: break-word;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .md-preview > * + * {
@@ -230,6 +232,97 @@
 .md-preview img {
   max-width: 100%;
   border-radius: 0.625rem;
+}
+
+/* Compact rendered Markdown inside assistant chat bubbles. */
+.chat-markdown {
+  font-size: inherit;
+  line-height: 1.55;
+}
+
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  font-size: 1em;
+  margin-top: 0.85em;
+}
+
+.chat-markdown p,
+.chat-markdown ul,
+.chat-markdown ol,
+.chat-markdown blockquote,
+.chat-markdown pre,
+.chat-markdown table {
+  margin-top: 0.65em;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  padding-left: 1.25em;
+}
+
+.chat-markdown li + li {
+  margin-top: 0.25em;
+}
+
+.chat-markdown pre {
+  padding: 0.7em 0.8em;
+}
+
+@keyframes chat-thinking-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translateY(-2px) rotate(8deg);
+    opacity: 1;
+  }
+}
+
+@keyframes chat-thinking-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.chat-thinking-icon {
+  animation: chat-thinking-float 1.2s ease-in-out infinite;
+}
+
+.chat-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.chat-thinking-dots span {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: chat-thinking-dot 1.1s ease-in-out infinite;
+}
+
+.chat-thinking-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-thinking-dots span:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 /* Every interactive control shows the hand. */
