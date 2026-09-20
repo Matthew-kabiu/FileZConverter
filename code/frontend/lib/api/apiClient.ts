@@ -129,9 +129,124 @@ class ApiClient {
 
   session = {
     purge: (sessionId: string) =>
-      this.request<{ purged: boolean }>(
+      this.request<{ purged: boolean; vectorsDeleted: number }>(
         `${ROUTES.api.session}?sessionId=${encodeURIComponent(sessionId)}`,
         { method: "DELETE" },
+      ),
+  };
+
+  rag = {
+    index: (dto: { sessionId: string; studio: string; fileName: string; text: string }) =>
+      this.request<{ chunks: number }>(ROUTES.api.rag.index, {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    ask: (dto: { sessionId: string; question: string }) =>
+      this.request<{
+        answer: string;
+        citations: { file: string; section: string }[];
+        empty: boolean;
+      }>(ROUTES.api.rag.ask, { method: "POST", body: JSON.stringify(dto) }),
+    sessions: () =>
+      this.request<{ sessionId: string; studios: string[]; chunks: number }[]>(
+        ROUTES.api.rag.sessions,
+      ),
+    revokeSession: (sessionId: string) =>
+      this.request<{ deleted: number }>(
+        `${ROUTES.api.rag.sessions}?sessionId=${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" },
+      ),
+    removeFile: (dto: { sessionId: string; studio: string; fileName: string }) =>
+      this.request<{ deleted: number }>(
+        `${ROUTES.api.rag.file}?sessionId=${encodeURIComponent(dto.sessionId)}&studio=${encodeURIComponent(dto.studio)}&fileName=${encodeURIComponent(dto.fileName)}`,
+        { method: "DELETE" },
+      ),
+  };
+
+  setup = {
+    status: () =>
+      this.request<{ bootstrapNeeded: boolean }>(ROUTES.api.setup.status),
+    bootstrap: (dto: { name: string; email: string; password: string }) =>
+      this.request<{ id: string; email: string }>(ROUTES.api.setup.bootstrap, {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    redeemReset: (dto: { token: string; password: string }) =>
+      this.request<{ done: boolean }>(ROUTES.api.setup.reset, {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    providers: () =>
+      this.request<{ provider: string; label: string | null; updatedAt: number }[]>(
+        ROUTES.api.setup.providers,
+      ),
+    saveProvider: (dto: { provider: string; key: string; label?: string }) =>
+      this.request<{ provider: string; label: string | null; updatedAt: number }>(
+        ROUTES.api.setup.providers,
+        { method: "POST", body: JSON.stringify(dto) },
+      ),
+    deleteProvider: (provider: string) =>
+      this.request<{ deleted: boolean }>(
+        `${ROUTES.api.setup.providers}?provider=${encodeURIComponent(provider)}`,
+        { method: "DELETE" },
+      ),
+    prefs: () =>
+      this.request<{
+        chatProvider: string | null;
+        chatModel: string | null;
+        embedProvider: string | null;
+        embedModel: string | null;
+      }>(ROUTES.api.setup.prefs),
+    savePrefs: (dto: {
+      chatProvider?: string | null;
+      chatModel?: string | null;
+      embedProvider?: string | null;
+      embedModel?: string | null;
+    }) =>
+      this.request<{
+        chatProvider: string | null;
+        chatModel: string | null;
+        embedProvider: string | null;
+        embedModel: string | null;
+      }>(ROUTES.api.setup.prefs, { method: "PUT", body: JSON.stringify(dto) }),
+  };
+
+  admin = {
+    users: (params?: { limit?: number; offset?: number; search?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.limit) query.set("limit", String(params.limit));
+      if (params?.offset) query.set("offset", String(params.offset));
+      if (params?.search) query.set("search", params.search);
+      const suffix = query.toString() ? `?${query.toString()}` : "";
+      return this.request<{
+        users: {
+          id: string;
+          name: string;
+          email: string;
+          role?: string | null;
+          banned?: boolean | null;
+        }[];
+      }>(`${ROUTES.api.admin.users}${suffix}`);
+    },
+    createUser: (dto: { name: string; email: string; password: string; role?: string }) =>
+      this.request<{ user: { id: string } }>(ROUTES.api.admin.users, {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    setBanned: (id: string, banned: boolean, banReason?: string) =>
+      this.request<{ userId: string; banned: boolean }>(
+        `${ROUTES.api.admin.users}/${encodeURIComponent(id)}`,
+        { method: "PATCH", body: JSON.stringify({ banned, banReason }) },
+      ),
+    removeUser: (id: string) =>
+      this.request<{ userId: string }>(
+        `${ROUTES.api.admin.users}/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      ),
+    issueReset: (userId: string) =>
+      this.request<{ resetUrl: string; expiresMinutes: number }>(
+        ROUTES.api.admin.resets,
+        { method: "POST", body: JSON.stringify({ userId }) },
       ),
   };
 
