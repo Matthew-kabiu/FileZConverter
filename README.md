@@ -31,9 +31,9 @@ renderer): same privacy DNA, now with real conversion and editing.
 |---|---|---|---|
 | Markdown | ✓ live preview | ✓ toolbar editor | DOCX, PDF, HTML, TXT |
 | Word (DOCX/DOC/ODT/RTF) | via extraction | round-trip via Markdown | PDF, HTML, TXT, MD |
-| Spreadsheets (XLSX/XLS/ODS/CSV) | ✓ table preview | ✓ cell editor | CSV, PDF, HTML |
+| Spreadsheets (XLSX/XLS/ODS/CSV) | ✓ table preview | ✓ cell editor | CSV, PDF, HTML (CSV → XLSX, PDF) |
 | PDF | ✓ instant viewer | merge, page-split | TXT (text extraction) |
-| TXT / HTML | ✓ | plain editing | MD, PDF, and more |
+| TXT / HTML | ✓ | plain editing | MD, PDF |
 
 Four tool studios share one conversion core: **Markdown**, **Word**,
 **Spreadsheet**, and **PDF** — each with upload, editing, live preview, and
