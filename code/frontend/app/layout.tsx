@@ -6,6 +6,7 @@ import { AppTooltip } from "@/components/ui/AppTooltip";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AuthCluster } from "@/components/rag/AuthCluster";
+import { SiteExtras } from "@/components/site/SiteExtras";
 import "./globals.css";
 
 const outfit = localFont({
@@ -52,6 +53,7 @@ export default function RootLayout({
           <div className="flex min-h-dvh flex-col bg-mist-900 text-twilight-300 dark:bg-twilight-200 dark:text-frost-800">
             <SiteHeader />
             <div className="min-h-0 flex-1">{children}</div>
+            <SiteExtras />
           </div>
           <Toaster position="top-right" richColors closeButton />
           <AppTooltip />
