@@ -31,7 +31,8 @@ services:
   redis:
     container_name: filezconverter_redis_prod
     image: redis/redis-stack:7.4.0-v1
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set in env}", "--save", "", "--appendonly", "no"]
+    environment:
+      REDIS_ARGS: "--requirepass ${REDIS_PASSWORD:?set in env} --appendonly no"
     deploy:
       resources:
         limits: { cpus: '0.5', memory: 512M }
