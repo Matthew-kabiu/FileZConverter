@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
 import { Download, Upload } from "lucide-react";
@@ -14,8 +14,11 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { notify } from "@/components/feedback/toast";
 import { useConvertSession } from "@/hooks/useConvertSession";
+import { useRagIndexFiles } from "@/hooks/useRagIndex";
+import { getRagSessionId } from "@/lib/rag-session";
 import { usePresetTarget } from "@/hooks/usePresetTarget";
 import { apiClient, ApiClientError } from "@/lib/api/apiClient";
+import { loadStudioSnapshot, saveStudioSnapshot } from "@/lib/storage/studioStore";
 import {
   clientTargetsFor,
   convertInBrowser,
@@ -57,6 +60,13 @@ interface MdDoc {
   content: string;
 }
 
+const SNAPSHOT_KEY = "markdown";
+
+interface MarkdownSnapshot {
+  docs: MdDoc[];
+  activeId: string | null;
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -66,6 +76,39 @@ function formatSize(bytes: number): string {
 export function MarkdownStudio() {
   const [docs, setDocs] = useState<MdDoc[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void loadStudioSnapshot<MarkdownSnapshot>(SNAPSHOT_KEY).then((snapshot) => {
+      if (!active) return;
+      const saved = Array.isArray(snapshot?.docs)
+        ? snapshot.docs.filter(
+            (doc) =>
+              typeof doc?.id === "string" &&
+              typeof doc?.fileName === "string" &&
+              typeof doc?.content === "string",
+          )
+        : [];
+      if (saved.length > 0) {
+        setDocs(saved);
+        setActiveId(
+          snapshot?.activeId && saved.some((doc) => doc.id === snapshot.activeId)
+            ? snapshot.activeId
+            : saved[0].id,
+        );
+      }
+      setRestored(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    saveStudioSnapshot(SNAPSHOT_KEY, { docs, activeId } satisfies MarkdownSnapshot);
+  }, [docs, activeId, restored]);
   const [target, setTarget] = usePresetTarget(
     ["docx", "pdf", "html", "txt"],
     "docx",
@@ -75,6 +118,10 @@ export function MarkdownStudio() {
   const { sessionId } = useConvertSession();
 
   const active = docs.find((d) => d.id === activeId) ?? null;
+  useRagIndexFiles(
+    "markdown",
+    docs.map((d) => ({ fileName: d.fileName, text: d.content })),
+  );
 
   const previewHtml = useMemo(() => {
     if (!active?.content) return "";
@@ -113,12 +160,20 @@ export function MarkdownStudio() {
     setDocs((prev) => prev.map((d) => (d.id === activeId ? { ...d, content } : d)));
   };
 
-  const removeDoc = (id: string) =>
+  const removeDoc = (id: string) => {
+    const doc = docs.find((d) => d.id === id);
+    if (doc) {
+      // Best-effort: drop the removed file's vectors so Snow forgets it.
+      apiClient.rag
+        .removeFile({ sessionId: getRagSessionId(), studio: "markdown", fileName: doc.fileName })
+        .catch(() => undefined);
+    }
     setDocs((prev) => {
       const rest = prev.filter((d) => d.id !== id);
       if (activeId === id) setActiveId(rest[0]?.id ?? null);
       return rest;
     });
+  };
 
   const convert = async () => {
     if (!active) {
@@ -236,13 +291,13 @@ export function MarkdownStudio() {
           >
             {active?.content ? (
               <div
-                className="md-preview"
+                className="md-preview max-w-full overflow-x-auto"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             ) : undefined}
           </PreviewPane>
           {active && (
-            <p className="text-[11px] opacity-60">
+            <p className="max-w-full break-words text-[11px] opacity-60">
               {formatSize(new Blob([active.content]).size)} · editing {active.fileName}
             </p>
           )}
