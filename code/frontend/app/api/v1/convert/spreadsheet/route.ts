@@ -4,6 +4,7 @@ import {
 } from "@/lib/services/convert/document.schema";
 import { editWorkbook } from "@/lib/services/spreadsheet/spreadsheet.service";
 import type { ApiEnvelope } from "@/types/api";
+import { getClientIp, rateKey, withRateLimit } from "@/lib/security/rateLimit";
 
 const editOpSchema = z.object({
   sheet: z.union([z.string().min(1).max(64), z.number().int().min(1)]),
@@ -24,7 +25,7 @@ function envelope(error: string, status: number): Response {
  * Thin controller: multipart .xlsx + JSON cell edits in → edited .xlsx out.
  * Edit-only lane endpoint; format conversion lives in /convert/document.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   let form: FormData;
   try {
     form = await request.formData();
@@ -72,3 +73,10 @@ export async function POST(request: Request) {
     return envelope("UNKNOWN_ERROR", 500);
   }
 }
+
+/** P6: conversions are public — 120/hour per IP (LibreOffice is the costliest op). */
+export const POST = withRateLimit(
+  [{ windowSec: 3600, max: 120 }],
+  (request: Request) => rateKey(["convert", getClientIp(request)]),
+  handlePOST,
+);

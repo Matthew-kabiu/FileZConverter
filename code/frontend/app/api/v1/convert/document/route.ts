@@ -5,6 +5,7 @@ import {
 } from "@/lib/services/convert/document.schema";
 import { convertDocument } from "@/lib/services/convert/document.service";
 import type { ApiEnvelope } from "@/types/api";
+import { getClientIp, rateKey, withRateLimit } from "@/lib/security/rateLimit";
 
 function envelope(
   error: string,
@@ -15,7 +16,7 @@ function envelope(
 }
 
 /** Thin controller: multipart file in → converted file out (download). */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const url = new URL(request.url);
   const target = documentTargetSchema.safeParse(url.searchParams.get("target"));
   if (!target.success) return envelope("VALIDATION_ERROR", 400);
@@ -62,3 +63,10 @@ export async function POST(request: Request) {
     return envelope("UNKNOWN_ERROR", 500);
   }
 }
+
+/** P6: conversions are public — 120/hour per IP (LibreOffice is the costliest op). */
+export const POST = withRateLimit(
+  [{ windowSec: 3600, max: 120 }],
+  (request: Request) => rateKey(["convert", getClientIp(request)]),
+  handlePOST,
+);

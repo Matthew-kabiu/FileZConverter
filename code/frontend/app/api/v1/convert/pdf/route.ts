@@ -3,6 +3,7 @@ import {
 } from "@/lib/services/convert/document.schema";
 import { mergePdfs, splitPdf } from "@/lib/services/pdf/pdf.service";
 import type { ApiEnvelope } from "@/types/api";
+import { getClientIp, rateKey, withRateLimit } from "@/lib/security/rateLimit";
 
 const MAX_FILES = 20;
 
@@ -33,7 +34,7 @@ function download(bytes: Uint8Array, filename: string): Response {
 }
 
 /** Thin controller: 2–20 PDFs in → one merged PDF out. */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const url = new URL(request.url);
   const mode = url.searchParams.get("mode") ?? "merge";
 
@@ -87,3 +88,10 @@ export async function POST(request: Request) {
     return envelope("UNKNOWN_ERROR", 500);
   }
 }
+
+/** P6: conversions are public — 120/hour per IP (LibreOffice is the costliest op). */
+export const POST = withRateLimit(
+  [{ windowSec: 3600, max: 120 }],
+  (request: Request) => rateKey(["convert", getClientIp(request)]),
+  handlePOST,
+);
